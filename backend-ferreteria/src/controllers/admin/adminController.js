@@ -51,13 +51,11 @@ exports.subirImagenProducto = async (req, res) => {
       return res.status(400).json({ error: 'No se envió ninguna imagen' });
     }
 
-    const carpetaProducto = path.resolve(__dirname, '../../../uploads/productos', idProducto.toString());
-    await fs.ensureDir(carpetaProducto);
-
-    const archivos = await fs.readdir(carpetaProducto);
-    for (const file of archivos) {
-      if (file !== req.file.filename) {
-        await fs.unlink(path.join(carpetaProducto, file));
+    const carpetaProducto = path.join(__dirname, '../../../uploads/productos/', idProducto.toString());
+    if (fs.existsSync(carpetaProducto)) {
+      const archivos = fs.readdirSync(carpetaProducto).filter(f => f !== req.file.filename);
+      for (const file of archivos) {
+        fs.unlinkSync(path.join(carpetaProducto, file));
       }
     }
 
