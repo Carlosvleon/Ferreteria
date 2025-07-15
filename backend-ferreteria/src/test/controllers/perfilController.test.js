@@ -64,6 +64,14 @@ describe('perfilController', () => {
     expect(response.body.length).toBe(2);
   });
 
+  test('GET /usuarios - sin resultados devuelve lista vacía', async () => {
+    perfilModel.obtenerUsuarios.mockResolvedValue([]);
+
+    const response = await request(app).get('/usuarios');
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual([]);
+  });
+
   test('GET /usuarios - error inesperado', async () => {
     perfilModel.obtenerUsuarios.mockRejectedValue(new Error('DB error'));
 
