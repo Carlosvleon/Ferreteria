@@ -18,3 +18,4 @@ package-lock.json
 **/package-lock.json
 # Ignorar archivos de log
 *.log
+uploads/
