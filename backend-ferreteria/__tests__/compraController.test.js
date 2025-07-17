@@ -24,26 +24,36 @@ describe('compraController', () => {
 
       const res = await request(app).post('/api/compras/realizar');
 
-      expect(res.statusCode).toBe(500);
-      expect(res.body).toEqual({ error: 'Error interno al procesar la compra.' });
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toEqual(mockResult);
     });
 
     it('CRC-002: retorna 500 si el modelo lanza error por carrito vacío', async () => {
       compraModel.realizarCompra.mockRejectedValue(new Error('Carrito vacío'));
+      compraModel.guardarTransaccionWebpay.mockResolvedValue();
 
       const res = await request(app).post('/api/compras/realizar');
 
       expect(res.statusCode).toBe(500);
       expect(res.body).toHaveProperty('error', 'Error interno al procesar la compra.');
+      expect(compraModel.guardarTransaccionWebpay).toHaveBeenCalledWith('mock-user-id', expect.objectContaining({
+        status: 'FAILED',
+        error_message: 'Carrito vacío'
+      }));
     });
 
     it('CRC-003: retorna 500 si hay un error de servidor (Mock error BD)', async () => {
       compraModel.realizarCompra.mockRejectedValue(new Error('Mock error BD'));
+      compraModel.guardarTransaccionWebpay.mockResolvedValue();
 
       const res = await request(app).post('/api/compras/realizar');
 
       expect(res.statusCode).toBe(500);
       expect(res.body).toHaveProperty('error', 'Error interno al procesar la compra.');
+      expect(compraModel.guardarTransaccionWebpay).toHaveBeenCalledWith('mock-user-id', expect.objectContaining({
+        status: 'FAILED',
+        error_message: 'Mock error BD'
+      }));
     });
   });
 

@@ -8,7 +8,6 @@ node_modules/
 GPP/
 
 # Ignorar carpeta img y todo su contenido
-img/
 
 # Ignorar configuración local de VSCode
 .vscode/
