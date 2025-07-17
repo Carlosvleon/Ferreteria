@@ -50,7 +50,10 @@ exports.pagarConWebpay = async (req, res) => {
 };
 
 exports.confirmarPagoWebpay = async (req, res) => {
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+    
     const { token_ws } = req.body;
     if (!token_ws) {
       return res.status(400).json({ error: 'Token de transacción es requerido' });
@@ -65,15 +68,29 @@ exports.confirmarPagoWebpay = async (req, res) => {
     let idCompra = null;
     let transaccionExitosa = false;
 
+    // Primero guardamos la transacción de Webpay
+    const transaccionWebpay = await compraModel.guardarTransaccionWebpay(usuarioId, resultado);
+
     if (resultado.status === 'AUTHORIZED' && resultado.response_code === 0) {
-      confirmacion = await compraModel.realizarCompra(usuarioId);
-      if (confirmacion.exito) {
-        idCompra = confirmacion.id_compra;
-        transaccionExitosa = true;
+      try {
+        confirmacion = await compraModel.realizarCompra(usuarioId);
+        if (confirmacion.exito) {
+          idCompra = confirmacion.id_compra;
+          // Si la compra fue exitosa, creamos la relación en compra_transaccion_webpay
+          await client.query(
+            `INSERT INTO compra_transaccion_webpay (id_compra, id_transaccion) VALUES ($1, $2)`,
+            [idCompra, transaccionWebpay.id]
+          );
+          transaccionExitosa = true;
+        }
+      } catch (compraError) {
+        // Si falla la compra, hacemos rollback pero mantenemos el registro de la transacción
+        await client.query('ROLLBACK');
+        throw compraError;
       }
     }
 
-    await compraModel.guardarTransaccionWebpay(usuarioId, resultado, idCompra);
+    await client.query('COMMIT');
 
     if (!transaccionExitosa) {
       return res.status(400).json({
@@ -82,16 +99,29 @@ exports.confirmarPagoWebpay = async (req, res) => {
       });
     }
 
-    res.json({ mensaje: 'Compra realizada con éxito', idCompra });
+    res.json({ 
+      mensaje: 'Compra realizada con éxito', 
+      idCompra,
+      detalleTransaccion: resultado
+    });
   } catch (err) {
     console.error("Error al confirmar el pago con Webpay:", err);
+    // Aseguramos que cualquier transacción pendiente sea revertida
+    await client.query('ROLLBACK');
+    
+    // Guardamos el registro del error en la transacción
     await compraModel.guardarTransaccionWebpay(req.user.id_usuario, {
       buy_order: null,
       session_id: null,
-      status: "FAILED",
-      error_message: err.message
+      status: "FAILED"
     });
-    res.status(500).json({ error: "Error interno al confirmar el pago." });
+    
+    res.status(500).json({ 
+      error: "Error interno al confirmar el pago.",
+      mensaje: err.message 
+    });
+  } finally {
+    client.release();
   }
 };
 
