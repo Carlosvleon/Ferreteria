@@ -24,7 +24,7 @@ exports.login = async (email, password) => {
   const token = jwt.sign(
     { id_usuario: user.id_usuario, email: user.email, tipo_usuario: user.tipo_usuario_id, rut: user.rut },
     process.env.JWT_SECRET,
-    { expiresIn: '2h' }
+    { expiresIn: '5m' }
   );
 
   // Test espera este mensaje exacto:

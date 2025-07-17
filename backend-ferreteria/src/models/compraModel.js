@@ -1,7 +1,8 @@
 const pool = require('../db');
 
-exports.realizarCompra = async (usuarioId) => {
-  const client = await pool.connect();
+exports.realizarCompra = async (usuarioId, providedClient = null) => {
+  const client = providedClient || await pool.connect();
+  const shouldRelease = !providedClient;
   try {
     await client.query('BEGIN');
 
@@ -125,7 +126,9 @@ exports.realizarCompra = async (usuarioId) => {
     await client.query('ROLLBACK');
     throw err;
   } finally {
-    client.release();
+    if (shouldRelease) {
+      client.release();
+    }
   }
 };
 exports.obtenerComprasPorUsuario = async (usuarioId) => {
