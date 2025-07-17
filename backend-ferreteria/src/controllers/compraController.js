@@ -1,5 +1,5 @@
 const webpayService = require('../services/webpayService');
-const compraModel = require('../models/CompraModel');
+const compraModel = require('../models/compraModel');
 
 exports.realizarCompra = async (req, res) => {
   try {
