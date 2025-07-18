@@ -161,29 +161,38 @@ exports.obtenerCarritoYTotal = async (usuarioId) => {
   return { id: rows[0].id_carrito_compras, total: parseFloat(rows[0].total || 0) };
 };
 
-async function guardarTransaccionWebpay(usuarioId, resultado, idCompra) {
+async function guardarTransaccionWebpay(usuarioId, resultado, idCompra = null) {
+  // Destructura lo que exista en resultado (puede llegar info incompleta si falla la transacción)
   const { 
-    buy_order, session_id, status, amount, authorization_code, 
-    card_detail, payment_type_code, response_code, installments_number, transaction_date 
-  } = resultado;
+    buy_order = null, session_id = null, status = null, amount = null, authorization_code = null, 
+    card_detail = {}, payment_type_code = null, response_code = null, installments_number = null, transaction_date = null,
+    error_message = null
+  } = resultado || {};
 
-  const card_last_digits = card_detail.card_number;
+  const card_last_digits = card_detail?.card_number ?? null;
 
+  // Guarda la transacción siempre, aunque falle
   const transaccion = await pool.query(
     `INSERT INTO transaccion_webpay (
-      buy_order, session_id, status, amount, authorization_code,
-      card_last_digits, payment_type_code, response_code, installments_number, transaction_date
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
-    [buy_order, session_id, status, amount, authorization_code,
-     card_last_digits, payment_type_code, response_code, installments_number, transaction_date]
+      id_usuario, buy_order, session_id, status, amount, authorization_code,
+      card_last_digits, payment_type_code, response_code, installments_number, transaction_date, error_message
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
+    [
+      usuarioId, buy_order, session_id, status, amount, authorization_code,
+      card_last_digits, payment_type_code, response_code, installments_number, transaction_date, error_message
+    ]
   );
 
   const idTransaccion = transaccion.rows[0].id;
 
-  await pool.query(
-    `INSERT INTO compra_transaccion_webpay (id_compra, id_transaccion) VALUES ($1, $2)`,
-    [idCompra, idTransaccion]
-  );
+  // Solo crea la relación con compra si existe idCompra (transacción exitosa)
+  if (idCompra) {
+    await pool.query(
+      `INSERT INTO compra_transaccion_webpay (id_compra, id_transaccion) VALUES ($1, $2)`,
+      [idCompra, idTransaccion]
+    );
+  }
 }
+
 
 exports.guardarTransaccionWebpay = guardarTransaccionWebpay;

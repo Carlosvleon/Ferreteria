@@ -35,6 +35,7 @@ exports.login = async (email, password) => {
 };
 
 exports.register = async (data) => {
+  const client = await pool.connect();
   try {
     const { nombre, email, password, telefono, direccion, portada, tipo_usuario_id, rut, oficios, genero_id, razon_social, fecha_creacion_empresa } = data;
 
@@ -45,14 +46,14 @@ exports.register = async (data) => {
     }
 
     // ¿Email ya existe?
-    const existsEmail = await pool.query('SELECT * FROM usuarios WHERE email = $1', [email]);
+    const existsEmail = await client.query('SELECT * FROM usuarios WHERE email = $1', [email]);
     if (existsEmail.rows.length > 0) {
       console.log('[REGISTER] Email ya registrado:', email);
       return { status: 400, body: { error: 'El correo ya está registrado' } };
     }
 
     // ¿Rut ya existe?
-    const existsRut = await pool.query('SELECT * FROM usuarios WHERE rut = $1', [rut]);
+    const existsRut = await client.query('SELECT * FROM usuarios WHERE rut = $1', [rut]);
     if (existsRut.rows.length > 0) {
       console.log('[REGISTER] RUT ya registrado:', rut);
       return { status: 400, body: { error: 'El RUT ya está registrado' } };
@@ -68,35 +69,31 @@ exports.register = async (data) => {
     await fs.copy(avatarSrc, avatarDest);
     const fotoPerfilPath = path.join('GPP', rut, 'perfil', 'avatar.jpg');
 
+    await client.query('BEGIN');
+
     // INSERT USUARIO
-    try {
-      await pool.query(
-        'INSERT INTO usuarios (id_usuario, nombre, email, password, telefono, direccion, foto_perfil, portada, tipo_usuario_id, rut, genero_id, razon_social, fecha_creacion_empresa) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)',
-        [userId, nombre, email, hashedPassword, telefono, direccion, fotoPerfilPath, portada, tipo_usuario_id, rut, genero_id, razon_social, fecha_creacion_empresa]
-      );
-      console.log('[REGISTER] Usuario creado con id:', userId);
-    } catch (err) {
-      console.error('[REGISTER][ERROR][Usuario]', err);
-      return { status: 500, body: { error: 'Error creando usuario', details: err.message } };
-    }
+    await client.query(
+      'INSERT INTO usuarios (id_usuario, nombre, email, password, telefono, direccion, foto_perfil, portada, tipo_usuario_id, rut, genero_id, razon_social, fecha_creacion_empresa) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)',
+      [userId, nombre, email, hashedPassword, telefono, direccion, fotoPerfilPath, portada, tipo_usuario_id, rut, genero_id, razon_social, fecha_creacion_empresa]
+    );
+    console.log('[REGISTER] Usuario creado con id:', userId);
 
     // INSERT CARRITO
-    try {
-      const resultCarrito = await pool.query(
-        'INSERT INTO carrito_compras (id_usuario, total) VALUES ($1, $2) RETURNING *',
-        [userId, null]
-      );
-      console.log('[REGISTER] Carrito creado:', resultCarrito.rows[0]);
-    } catch (err) {
-      console.error('[REGISTER][ERROR][Carrito]', err);
-      return { status: 500, body: { error: 'Error creando carrito', details: err.message } };
-    }
+    const resultCarrito = await client.query(
+      'INSERT INTO carrito_compras (id_usuario, total) VALUES ($1, $2) RETURNING *',
+      [userId, null]
+    );
+    console.log('[REGISTER] Carrito creado:', resultCarrito.rows[0]);
 
+    await client.query('COMMIT');
     // Fin: usuario + carrito creados
     return { status: 201, body: { message: 'Usuario registrado con éxito', userId } };
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('[REGISTER][ERROR][General]', err);
     return { status: 500, body: { error: "Error al registrar el usuario", details: err.message } };
+  } finally {
+    client.release();
   }
 };
 

@@ -30,24 +30,20 @@ exports.getPerfilPorId = async (req, res) => {
   }
 };
 
-exports.actualizarFotoPerfil = async (req, res) => {
+const actualizarImagenGenerico = async (req, res, tipo) => {
   try {
     const { rut } = req.body;
+    if (!req.file) return res.status(400).json({ error: "No se ha subido ningún archivo." });
     if (req.user.rut !== rut) return res.status(403).json({ error: "No autorizado" });
-    const resultado = await perfilModel.actualizarImagen(rut, req.file, "perfil");
+
+    const resultado = await perfilModel.actualizarImagen(rut, req.file, tipo);
     res.json(resultado);
   } catch (err) {
-    res.status(500).json({ error: "Error al actualizar la foto", details: err.message });
+    console.error(`Error al actualizar la imagen de ${tipo}:`, err);
+    res.status(500).json({ error: `Error al actualizar la imagen de ${tipo}` });
   }
 };
 
-exports.actualizarPortada = async (req, res) => {
-  try {
-    const { rut } = req.body;
-    if (req.user.rut !== rut) return res.status(403).json({ error: "No autorizado" });
-    const resultado = await perfilModel.actualizarImagen(rut, req.file, "portada");
-    res.json(resultado);
-  } catch (err) {
-    res.status(500).json({ error: "Error al actualizar la portada", details: err.message });
-  }
-};
+exports.actualizarFotoPerfil = (req, res) => actualizarImagenGenerico(req, res, "perfil");
+
+exports.actualizarPortada = (req, res) => actualizarImagenGenerico(req, res, "portada");

@@ -25,7 +25,8 @@ exports.register = async (req, res) => {
     const result = await userModel.register(data);
     res.status(result.status).json(result.body);
   } catch (err) {
-    res.status(500).json({ error: "Error al registrar el usuario", details: err.message });
+    console.error("Error al registrar el usuario:", err);
+    res.status(500).json({ error: "Error interno al registrar el usuario." });
   }
 };
 

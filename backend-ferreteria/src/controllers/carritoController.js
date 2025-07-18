@@ -21,7 +21,7 @@ exports.agregarAlCarrito = async (req, res) => {
     res.json(resultado);
   } catch (err) {
     console.error("Error al agregar productos al carrito:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Error interno al agregar productos al carrito." });
   }
 };
 

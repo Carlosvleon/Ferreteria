@@ -22,6 +22,6 @@ exports.obtenerProductos = async (id_bodega, id_sucursal, email) => {
     [id_bodega, id_sucursal]
   );
 
-  console.log(`Consulta POST de bodega \${id_bodega} en sucursal \${id_sucursal} por \${email}`);
+  console.log(`Consulta POST de bodega ${id_bodega} en sucursal ${id_sucursal} por ${email}`);
   return result.rows;
 };

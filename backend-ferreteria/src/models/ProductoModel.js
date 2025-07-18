@@ -1,53 +1,58 @@
-const pool = require('../db');
+const pool = require("../db");
 
 exports.obtenerTodos = async () => {
   const productosResult = await pool.query(
-    `SELECT p.*, po.precio_online 
-     FROM producto p 
-     LEFT JOIN precios_online po ON po.id_producto = p.id_producto 
-     ORDER BY p.id_producto ASC`
+    `SELECT 
+      p.id_producto,
+      p.codigo_producto,
+      p.nombre,
+      p.imagen,
+      p.id_marca,
+      p.activo,
+      m.nombre AS marca,
+      p.id_modelo,
+      mo.nombre AS modelo,
+      p.id_categoria,
+      c.nombre AS categoria, 
+      po.precio_online
+    FROM producto p
+    LEFT JOIN precios_online po ON po.id_producto = p.id_producto
+    LEFT JOIN marca m ON m.id_marca = p.id_marca
+    LEFT JOIN modelo mo ON mo.id_modelo = p.id_modelo
+    LEFT JOIN categoria c ON c.id_categoria = p.id_categoria
+    WHERE p.activo = true
+    ORDER BY p.id_producto ASC`
   );
 
-  const productos = productosResult.rows;
-
-  for (const producto of productos) {
-    const stockResult = await pool.query(
-      `SELECT s.id_sucursal, s.nombre AS nombre_sucursal, bp.stock
-       FROM bodega_producto bp
-       JOIN bodega b ON bp.id_bodega = b.id_bodega
-       JOIN sucursal s ON b.id_sucursal = s.id_sucursal
-       WHERE bp.id_producto = $1`,
-      [producto.id_producto]
-    );
-
-    producto.stock_por_sucursal = stockResult.rows;
-  }
-
-  return productos;
+  return productosResult.rows;
 };
 
-exports.obtenerPorBodega = async (id_bodega, id_sucursal) => {
-  const result = await pool.query(
-    `SELECT 
-       p.codigo_producto AS "Código del producto",
-       ma.nombre AS "Marca",
-       p.nombre AS "Nombre",
-       mo.nombre AS "Modelo",
-       bp.stock AS "Stock",
-       s.nombre AS "Sucursal",
-       b.nombre AS "Bodega",
-       bp.fecha_modificacion AS "Fecha",
-       po.precio AS "Precio Online"
-     FROM bodega_producto bp
-     JOIN producto p ON bp.id_producto = p.id_producto
-     JOIN bodega b ON bp.id_bodega = b.id_bodega
-     JOIN sucursal s ON b.id_sucursal = s.id_sucursal
-     LEFT JOIN marca ma ON ma.id_marca = p.id_marca
-     LEFT JOIN modelo mo ON mo.id_modelo = p.id_modelo
-     LEFT JOIN precios_online po on po.id_producto = p.id_producto
-     WHERE b.id_bodega = $1 AND s.id_sucursal = $2
-     ORDER BY p.id_producto ASC`,     
-    [id_bodega, id_sucursal]
-  );
-  return result.rows;
+exports.obtenerActivos = async () => {
+  const query = `
+    SELECT 
+      p.id_producto, p.codigo_producto, p.nombre, p.imagen, p.id_marca, p.activo,
+      m.nombre AS marca, p.id_modelo, mo.nombre AS modelo, p.id_categoria, c.nombre AS categoria, 
+      po.precio_online,
+      (
+        SELECT jsonb_agg(sedes)
+        FROM (
+          SELECT s.id_sucursal, s.nombre AS nombre_sucursal,
+                 jsonb_agg(jsonb_build_object('idBodega', b.id_bodega, 'nombreBodega', b.nombre, 'stock', bp.stock)) AS bodegas
+          FROM bodega_producto bp
+          JOIN bodega b ON bp.id_bodega = b.id_bodega
+          JOIN sucursal s ON b.id_sucursal = s.id_sucursal
+          WHERE bp.id_producto = p.id_producto
+          GROUP BY s.id_sucursal, s.nombre
+        ) AS sedes
+      ) AS sedes
+    FROM producto p
+    LEFT JOIN precios_online po ON po.id_producto = p.id_producto
+    LEFT JOIN marca m ON m.id_marca = p.id_marca
+    LEFT JOIN modelo mo ON mo.id_modelo = p.id_modelo
+    LEFT JOIN categoria c ON c.id_categoria = p.id_categoria
+    WHERE p.activo = true
+    ORDER BY p.id_producto ASC;
+  `;
+  const { rows } = await pool.query(query);
+  return rows;
 };

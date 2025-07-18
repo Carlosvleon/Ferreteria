@@ -18,4 +18,9 @@ package-lock.json
 **/package-lock.json
 # Ignorar archivos de log
 *.log
+<<<<<<< HEAD
+=======
+
+# ignorar carpeta uploads
+>>>>>>> feature/imgProductos_implementation
 uploads/
